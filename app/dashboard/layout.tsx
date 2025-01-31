@@ -19,6 +19,7 @@ import {
   IconBell,
 } from "@tabler/icons-react"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
+import Sidebar from "../components/Sidebar"
 
 const sidebarItems = [
   {
@@ -27,34 +28,35 @@ const sidebarItems = [
     icon: IconLayoutDashboard,
   },
   {
-    title: "eCommerce",
-    href: "/dashboard/ecommerce",
-    icon: IconShoppingCart,
+    title: "Invoice Management",
+    href: "/dashboard/invoices",
+    icon: IconShoppingCart, 
   },
   {
-    title: "Calendar",
-    href: "/dashboard/calendar",
+    title: "Invoice Processor",
+    href: "/dashboard/InvoiceProcessor",
     icon: IconCalendar,
   },
+  {
+    title: "Products",
+    href: "/dashboard/products",
+    icon: IconUser,
+  },
+  {
+    title: "Inventory",
+    href: "/dashboard/inventory",
+    icon: IconForms,
+  },
+  {
+    title: "Tax Handling",
+    href: "/dashboard/taxHandling",
+    icon: IconTable,
+  },
+
   {
     title: "Profile",
     href: "/dashboard/profile",
     icon: IconUser,
-  },
-  {
-    title: "Forms",
-    href: "/dashboard/forms",
-    icon: IconForms,
-  },
-  {
-    title: "Tables",
-    href: "/dashboard/tables",
-    icon: IconTable,
-  },
-  {
-    title: "Settings",
-    href: "/dashboard/settings",
-    icon: IconSettings,
   },
 ]
 
@@ -177,4 +179,4 @@ export default function DashboardLayout({
       </div>
     </div>
   )
-} 
+}

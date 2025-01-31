@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server"
 import { redirect } from "next/navigation"
 import { IconUsers, IconArrowUpRight, IconChartBar, IconClock } from "@tabler/icons-react"
+import InvoiceProcessor from "../components/InvoiceProcessor"
 
 const stats = [
   {
@@ -70,6 +71,9 @@ export default async function Dashboard() {
           {/* Add your activity content here */}
         </div>
       </div>
+
+      {/* Add the InvoiceProcessor component here */}
+      <InvoiceProcessor />
     </div>
   )
 } 
