@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false)
   const { isSignedIn } = useUser()
+  const router = useRouter()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -76,24 +78,45 @@ export default function Header() {
                   <span className="absolute inset-0 rounded-lg bg-gradient-to-r from-indigo-500/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 </Link>
               ))}
+              
               {isSignedIn ? (
-                <UserButton afterSignOutUrl="/" />
+                <div className="flex items-center gap-2">
+                  <Button 
+                    size="sm"
+                    onClick={() => router.push('/dashboard')}
+                    className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-full transition-all duration-300"
+                  >
+                    Dashboard
+                  </Button>
+                  <UserButton 
+                    afterSignOutUrl="/"
+                    appearance={{
+                      elements: {
+                        avatarBox: "w-8 h-8",
+                      }
+                    }}
+                  />
+                </div>
               ) : (
-                <>
+                <div className="flex items-center gap-2">
                   <SignInButton mode="modal">
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="text-zinc-300 hover:text-white hover:bg-white/10"
+                    >
                       Sign In
                     </Button>
                   </SignInButton>
                   <SignUpButton mode="modal">
                     <Button 
                       size="sm" 
-                      className="relative ml-4 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-full transition-all duration-300 shadow-[0_0_16px_-3px] shadow-indigo-600/50 border border-indigo-500/20"
+                      className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-full transition-all duration-300 shadow-[0_0_16px_-3px] shadow-indigo-600/50 border border-indigo-500/20"
                     >
                       Get Started
                     </Button>
                   </SignUpButton>
-                </>
+                </div>
               )}
             </nav>
 
