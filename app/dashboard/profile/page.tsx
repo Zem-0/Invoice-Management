@@ -61,7 +61,7 @@ export default function ProfilePage() {
           Update Profile
         </button>
         <button
-          onClick={signOut}
+          onClick={() => signOut()}
           className="p-2 bg-red-600 text-white rounded hover:bg-red-700 transition mt-4"
         >
           Sign Out
