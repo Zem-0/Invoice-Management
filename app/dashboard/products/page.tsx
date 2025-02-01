@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Product {
+  id: string;
   name: string;
   price: number;
   stock: number;
@@ -10,19 +12,47 @@ interface Product {
 
 export default function ProductManagement() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [newProduct, setNewProduct] = useState<Product>({
+  const [newProduct, setNewProduct] = useState<Omit<Product, 'id'>>({
     name: "",
     price: 0,
     stock: 0,
   });
 
-  const handleAddProduct = () => {
-    setProducts([...products, newProduct]);
-    setNewProduct({ name: "", price: 0, stock: 0 });
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const fetchProducts = async () => {
+    const { data, error } = await supabase.from('products').select('*');
+    if (error) {
+      console.error("Error fetching products:", error);
+    } else {
+      console.log("Fetched products:", data);
+      setProducts(data || []);
+    }
   };
 
-  const handleDeleteProduct = (index: number) => {
-    setProducts(products.filter((_, i) => i !== index));
+  const handleAddProduct = async () => {
+    console.log("Adding product:", newProduct);
+    const { data, error } = await supabase.from('products').insert([newProduct]);
+    if (error) {
+      console.error("Error adding product:", error);
+    } else {
+      console.log("Product added:", data);
+      setNewProduct({ name: "", price: 0, stock: 0 });
+      // Fetch products again to update the list
+      fetchProducts();
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    console.log("Deleting product with id:", id);
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) {
+      console.error("Error deleting product:", error);
+    } else {
+      setProducts(products.filter((product) => product.id !== id));
+    }
   };
 
   return (
@@ -68,22 +98,23 @@ export default function ProductManagement() {
             <th className="py-2 px-4 text-left text-gray-600 dark:text-gray-300">Name</th>
             <th className="py-2 px-4 text-left text-gray-600 dark:text-gray-300">Price</th>
             <th className="py-2 px-4 text-left text-gray-600 dark:text-gray-300">Stock</th>
+            <th className="py-2 px-4 text-left text-gray-600 dark:text-gray-300">Actions</th>
           </tr>
         </thead>
         <tbody>
-          {products.map((product, index) => (
-            <tr key={index} className="border-t dark:border-gray-700">
-              <td className="border px-4 py-2 text-gray-800 dark:text-white flex justify-between items-center">
-                {product.name}
+          {products.map((product) => (
+            <tr key={product.id} className="border-t dark:border-gray-700">
+              <td className="border px-4 py-2 text-gray-800 dark:text-white">{product.name}</td>
+              <td className="border px-4 py-2 text-gray-800 dark:text-white">{product.price}</td>
+              <td className="border px-4 py-2 text-gray-800 dark:text-white">{product.stock}</td>
+              <td className="border px-4 py-2 text-gray-800 dark:text-white">
                 <button
-                  onClick={() => handleDeleteProduct(index)}
-                  className="text-red-500 hover:text-red-700 ml-2"
+                  onClick={() => handleDeleteProduct(product.id)}
+                  className="text-red-500 hover:text-red-700"
                 >
                   Delete
                 </button>
               </td>
-              <td className="border px-4 py-2 text-gray-800 dark:text-white">{product.price}</td>
-              <td className="border px-4 py-2 text-gray-800 dark:text-white">{product.stock}</td>
             </tr>
           ))}
         </tbody>
