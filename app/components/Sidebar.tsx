@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { IconDashboard, IconFileInvoice, IconPackage, IconReceipt, IconBox, IconUser } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+import Image from 'next/image'
 
 const sidebarLinks = [
   {
@@ -51,7 +52,13 @@ export default function Sidebar() {
       <div className="flex h-16 items-center gap-2 px-4 border-b border-[#2F3746]">
         <Link href="/" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded bg-indigo-600 flex items-center justify-center">
-            <span className="text-lg font-bold text-white">I</span>
+            <Image
+              src="/invoice.png"
+              alt="Ledgerly Logo"
+              width={32}
+              height={32}
+              className="rounded-full bg-gray-800"
+            />
           </div>
           <span className="text-xl font-bold text-white">Ledgerly</span>
         </Link>

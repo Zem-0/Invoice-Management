@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { HeroHighlight, Highlight } from "@/components/ui/hero-highlight"
 import { Button } from "@/components/ui/button"
+import Link from "next/link"
 
 export default function Hero() {
   return (
@@ -14,9 +15,9 @@ export default function Hero() {
           transition={{ duration: 0.5, ease: [0.4, 0.0, 0.2, 1] }}
           className="text-2xl md:text-4xl lg:text-6xl font-bold text-white max-w-4xl leading-relaxed lg:leading-snug text-center mx-auto"
         >
-          Transform Your Workflow with{" "}
+          Optimize Efficiency with{" "}
           <Highlight className="text-white">
-            Streamlined Solutions
+            Ledgerly Solutions
           </Highlight>
         </motion.h1>
 
@@ -35,19 +36,27 @@ export default function Hero() {
           transition={{ duration: 0.5, delay: 0.4 }}
           className="flex gap-4 justify-center mt-12"
         >
-          <Button 
-            size="lg" 
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 rounded-full"
+          <Link href="/dashboard">
+            <Button 
+              size="lg" 
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 rounded-full"
+            >
+              Start Your Free Trial
+            </Button>
+          </Link>
+          <a 
+            href="https://github.com/Zem-0/Invoice-Management" 
+            target="_blank" 
+            rel="noopener noreferrer"
           >
-            Start Your Free Trial
-          </Button>
-          <Button 
-            size="lg" 
-            variant="outline" 
-            className="border-indigo-600/20 hover:bg-indigo-600/10 text-white rounded-full"
-          >
-            Learn More
-          </Button>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="border-indigo-600/20 hover:bg-indigo-600/10 text-white rounded-full"
+            >
+              Learn More
+            </Button>
+          </a>
         </motion.div>
       </div>
     </HeroHighlight>

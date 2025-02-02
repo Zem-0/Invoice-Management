@@ -21,6 +21,7 @@ interface Product {
   name: string
   price: number
   stock: number
+  uuid: string
 }
 
 interface InvoiceItem {
@@ -40,6 +41,7 @@ export default function InvoiceGenerator() {
   const [products, setProducts] = useState<Product[]>([])
   const [clientName, setClientName] = useState("")
   const [clientEmail, setClientEmail] = useState("")
+  const [fetchError, setFetchError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isLoaded) {
@@ -52,19 +54,19 @@ export default function InvoiceGenerator() {
   }, [isLoaded, isSignedIn])
 
   const fetchProducts = async () => {
-    if (!user?.id) return
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user?.id)
+      
+      if (error) throw error
 
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('user_id', user.id)
-      .gt('stock', 0)
-    
-    if (error) {
-      console.error("Error fetching products:", error)
-    } else {
-      console.log("Fetched products:", data)
+      console.log("Products array:", data) // Debug log
       setProducts(data || [])
+      
+    } catch (error) {
+      console.error("Failed to fetch products:", error)
     }
   }
 
@@ -83,17 +85,25 @@ export default function InvoiceGenerator() {
   }
 
   const updateItem = (index: number, productId: string) => {
-    const product = products.find(p => p.id === productId)
-    if (product) {
-      const newItems = [...items]
-      newItems[index] = {
-        productId: product.id,
-        description: product.name,
-        quantity: 1,
-        price: product.price
-      }
-      setItems(newItems)
+    console.log("Looking for product with UUID:", productId)
+    const selectedProduct = products.find(p => p.uuid === productId)
+    console.log("Found product:", selectedProduct)
+    
+    if (!selectedProduct) {
+      console.log("Product not found!")
+      return
     }
+
+    const newItems = [...items]
+    newItems[index] = {
+      productId: selectedProduct.uuid,
+      description: selectedProduct.name,
+      quantity: 1,
+      price: selectedProduct.price,
+      isManual: false
+    }
+    
+    setItems(newItems)
   }
 
   const updateQuantity = (index: number, quantity: number) => {
@@ -115,51 +125,7 @@ export default function InvoiceGenerator() {
   }
 
   const calculateTotal = () => {
-    return items.reduce((total, item) => total + (item.quantity * item.price), 0)
-  }
-
-  const generatePDF = () => {
-    const doc = new jsPDF()
-    
-    // Add company logo/header
-    doc.setFontSize(20)
-    doc.text('Invoice', 14, 22)
-    
-    // Add invoice info
-    doc.setFontSize(12)
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 35)
-    doc.text(`Invoice #: INV-${Date.now().toString().slice(-6)}`, 14, 42)
-    
-    // Add client info
-    doc.text('Bill To:', 14, 55)
-    doc.setFontSize(11)
-    doc.text(clientName, 14, 62)
-    doc.text(clientEmail, 14, 69)
-    
-    // Add items table
-    const tableColumn = ["Product", "Quantity", "Price", "Total"]
-    const tableRows = items.map(item => [
-      item.description,
-      item.quantity,
-      `$${item.price.toFixed(2)}`,
-      `$${(item.quantity * item.price).toFixed(2)}`
-    ])
-    
-    doc.autoTable({
-      head: [tableColumn],
-      body: tableRows,
-      startY: 80,
-      theme: 'grid',
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [66, 66, 66] }
-    })
-    
-    // Add total
-    const finalY = (doc as any).lastAutoTable.finalY || 80
-    doc.text(`Total: $${calculateTotal().toFixed(2)}`, 14, finalY + 20)
-    
-    // Save PDF
-    doc.save(`invoice-${Date.now()}.pdf`)
+    return items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -171,7 +137,7 @@ export default function InvoiceGenerator() {
     }
 
     try {
-      // Create invoice in database with user_id instead of uid
+      // Create invoice in database
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .insert([
@@ -187,10 +153,50 @@ export default function InvoiceGenerator() {
           }
         ])
 
-      if (invoiceError) {
-        console.error('Detailed error:', invoiceError)
-        throw invoiceError
-      }
+      if (invoiceError) throw invoiceError
+
+      // Generate PDF using jsPDF
+      const doc = new jsPDF()
+      
+      // Add header
+      doc.setFontSize(20)
+      doc.text('Invoice', 14, 22)
+      
+      // Add invoice info
+      doc.setFontSize(12)
+      doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 35)
+      doc.text(`Invoice #: INV-${Date.now().toString().slice(-6)}`, 14, 42)
+      
+      // Add client info
+      doc.text('Bill To:', 14, 55)
+      doc.setFontSize(11)
+      doc.text(clientName, 14, 62)
+      doc.text(clientEmail, 14, 69)
+      
+      // Add items table
+      const tableColumn = ["Product", "Quantity", "Price", "Total"]
+      const tableRows = items.map(item => [
+        item.description,
+        item.quantity,
+        `$${item.price.toFixed(2)}`,
+        `$${(item.quantity * item.price).toFixed(2)}`
+      ])
+      
+      doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 80,
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [66, 66, 66] }
+      })
+      
+      // Add total
+      const finalY = (doc as any).lastAutoTable.finalY || 80
+      doc.text(`Total: $${calculateTotal().toFixed(2)}`, 14, finalY + 20)
+      
+      // Save PDF
+      doc.save(`invoice-${Date.now()}.pdf`)
 
       // Reset form
       setItems([{ productId: "", description: "", quantity: 1, price: 0 }])
@@ -201,7 +207,7 @@ export default function InvoiceGenerator() {
       
     } catch (error) {
       console.error('Error creating invoice:', error)
-      alert('Failed to create invoice. Please check the console for details.')
+      alert('Failed to create invoice')
     }
   }
 
@@ -219,6 +225,12 @@ export default function InvoiceGenerator() {
         <h1 className="text-2xl font-bold text-white">Invoice Generator</h1>
         <p className="text-gray-400">Create and manage your invoices</p>
       </div>
+
+      {fetchError && (
+        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-4 text-red-400">
+          {fetchError}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Client Information */}
@@ -299,14 +311,21 @@ export default function InvoiceGenerator() {
                       ) : (
                         <select
                           value={item.productId}
-                          onChange={(e) => updateItem(index, e.target.value)}
+                          onChange={(e) => {
+                            const selectedId = e.target.value
+                            console.log("Selected ID:", selectedId)
+                            updateItem(index, selectedId)
+                          }}
                           className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
                           required
                         >
                           <option value="">Select a product</option>
                           {products.map((product) => (
-                            <option key={product.id} value={product.id}>
-                              {product.name} (Stock: {product.stock})
+                            <option 
+                              key={product.uuid}
+                              value={product.uuid}
+                            >
+                              {product.name} - ${product.price.toFixed(2)} (Stock: {product.stock})
                             </option>
                           ))}
                         </select>
@@ -316,10 +335,14 @@ export default function InvoiceGenerator() {
                       <input
                         type="number"
                         value={item.quantity}
-                        onChange={(e) => item.isManual 
-                          ? updateManualItem(index, 'quantity', parseInt(e.target.value))
-                          : updateQuantity(index, parseInt(e.target.value))
-                        }
+                        onChange={(e) => {
+                          const newItems = [...items]
+                          newItems[index] = {
+                            ...item,
+                            quantity: parseInt(e.target.value) || 0
+                          }
+                          setItems(newItems)
+                        }}
                         className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
                         min="1"
                         max={item.isManual ? undefined : products.find(p => p.id === item.productId)?.stock || 1}
@@ -385,14 +408,6 @@ export default function InvoiceGenerator() {
 
         {/* Submit and Download Buttons */}
         <div className="flex justify-end gap-4 pt-4">
-          <button
-            type="button"
-            onClick={generatePDF}
-            className="px-6 py-2.5 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-800 font-medium flex items-center gap-2"
-          >
-            <IconDownload className="w-5 h-5" />
-            Download PDF
-          </button>
           <button
             type="submit"
             className="px-6 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-gray-800 font-medium"

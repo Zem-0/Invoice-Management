@@ -6,6 +6,7 @@ import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { SignInButton, SignUpButton, UserButton, useUser } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
+import Image from "next/image"
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false)
@@ -58,9 +59,18 @@ export default function Header() {
           <div className="relative flex items-center justify-between px-5 py-3">
             <Link 
               href="/" 
-              className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200 hover:from-white hover:to-indigo-300 transition-all duration-300"
+              className="flex items-center gap-2"
             >
-              StreamLine
+              <Image
+                src="/invoice.png"  // Make sure to add your logo file
+                alt="StreamLine Logo"
+                width={32}
+                height={32}
+                className="rounded-full"
+              />
+              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200 hover:from-white hover:to-indigo-300 transition-all duration-300">
+                Ledgerly
+              </span>
             </Link>
             
             <nav className="hidden md:flex items-center space-x-2">

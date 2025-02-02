@@ -2,56 +2,97 @@
 
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useUser } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 interface Product {
+  uuid: string;
   id: string;
   name: string;
   price: number;
   stock: number;
+  user_id: string;
 }
 
 export default function ProductManagement() {
+  const { user, isLoaded, isSignedIn } = useUser();
+  const router = useRouter();
   const [products, setProducts] = useState<Product[]>([]);
   const [newProduct, setNewProduct] = useState<Omit<Product, 'id'>>({
     name: "",
     price: 0,
     stock: 0,
+    uuid: "",
+    user_id: ""
   });
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
-    const { data, error } = await supabase.from('products').select('*');
-    if (error) {
-      console.error("Error fetching products:", error);
-    } else {
-      console.log("Fetched products:", data);
-      setProducts(data || []);
-    }
-  };
-
-  const handleAddProduct = async () => {
-    console.log("Adding product:", newProduct);
-    const { data, error } = await supabase.from('products').insert([newProduct]);
-    if (error) {
-      console.error("Error adding product:", error);
-    } else {
-      console.log("Product added:", data);
-      setNewProduct({ name: "", price: 0, stock: 0 });
-      // Fetch products again to update the list
+    if (isLoaded) {
+      if (!isSignedIn) {
+        router.push('/sign-in');
+        return;
+      }
       fetchProducts();
     }
+  }, [isLoaded, isSignedIn]);
+
+  const fetchProducts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('user_id', user?.id);
+      
+      if (error) throw error;
+      
+      setProducts(data || []);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+    }
   };
 
-  const handleDeleteProduct = async (id: string) => {
-    console.log("Deleting product with id:", id);
-    const { error } = await supabase.from('products').delete().eq('id', id);
+  const handleAddProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user?.id) {
+      alert("Please sign in to add products");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('products')
+        .insert([
+          {
+            name: newProduct.name,
+            price: newProduct.price,
+            stock: newProduct.stock,
+            user_id: user.id
+          }
+        ])
+
+      if (error) throw error;
+
+      setNewProduct({ name: "", price: 0, stock: 0, uuid: "", user_id: "" });
+      fetchProducts();
+      
+    } catch (error) {
+      console.error('Error adding product:', error);
+      alert('Failed to add product');
+    }
+  };
+
+  const handleDeleteProduct = async (uuid: string) => {
+    console.log("Deleting product with uuid:", uuid);
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('uuid', uuid);
+    
     if (error) {
       console.error("Error deleting product:", error);
     } else {
-      setProducts(products.filter((product) => product.id !== id));
+      setProducts(products.filter((product) => product.uuid !== uuid));
     }
   };
 
@@ -103,13 +144,13 @@ export default function ProductManagement() {
         </thead>
         <tbody>
           {products.map((product) => (
-            <tr key={product.id} className="border-t dark:border-gray-700">
+            <tr key={product.uuid} className="border-t dark:border-gray-700">
               <td className="border px-4 py-2 text-gray-800 dark:text-white">{product.name}</td>
               <td className="border px-4 py-2 text-gray-800 dark:text-white">{product.price}</td>
               <td className="border px-4 py-2 text-gray-800 dark:text-white">{product.stock}</td>
               <td className="border px-4 py-2 text-gray-800 dark:text-white">
                 <button
-                  onClick={() => handleDeleteProduct(product.id)}
+                  onClick={() => handleDeleteProduct(product.uuid)}
                   className="text-red-500 hover:text-red-700"
                 >
                   Delete
