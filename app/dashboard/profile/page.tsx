@@ -25,7 +25,7 @@ export default function ProfilePage() {
   return (
     <div className="p-6 space-y-8 bg-gray-100 dark:bg-gray-900 min-h-screen">
       <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Profile</h1>
-      <p className="text-gray-600 dark:text-gray-300">Manage your profile information</p>
+      <p className="text-gray-600 dark:text-gray-300">Manage yours profile information</p>
 
       <div className="space-y-4">
         <div>

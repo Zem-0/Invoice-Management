@@ -2,9 +2,8 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { IconDashboard, IconFileInvoice, IconLogout } from "@tabler/icons-react"
+import { IconDashboard, IconFileInvoice, IconPackage, IconReceipt, IconBox, IconUser } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
-import  sidebarItems  from "@/app/dashboard/layout"
 
 const sidebarLinks = [
   {
@@ -14,7 +13,32 @@ const sidebarLinks = [
   },
   {
     title: "Invoice Management",
-    href: "/dashboard/invoices",
+    href: "/dashboard/invoice-management",
+    icon: IconFileInvoice,
+  },
+  {
+    title: "Invoice Processor",
+    href: "/dashboard/invoice-processor",
+    icon: IconReceipt,
+  },
+  {
+    title: "Products",
+    href: "/dashboard/products",
+    icon: IconPackage,
+  },
+  {
+    title: "Inventory",
+    href: "/dashboard/inventory",
+    icon: IconBox,
+  },
+  {
+    title: "Profile",
+    href: "/dashboard/profile",
+    icon: IconUser,
+  },
+  {
+    title: "Invoice Generator",
+    href: "/dashboard/invoice-generator",
     icon: IconFileInvoice,
   },
 ]
@@ -23,18 +47,18 @@ export default function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-50 w-72 bg-[#1B222C] border-r border-[#2F3746] transform transition-transform duration-200 ease-in-out">
+    <aside className="fixed inset-y-0 left-0 z-50 w-72 bg-[#1B222C] border-r border-[#2F3746]">
       <div className="flex h-16 items-center gap-2 px-4 border-b border-[#2F3746]">
         <Link href="/" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded bg-indigo-600 flex items-center justify-center">
-            <span className="text-lg font-bold text-white">T</span>
+            <span className="text-lg font-bold text-white">I</span>
           </div>
-          <span className="text-xl font-bold text-white">TailAdmin</span>
+          <span className="text-xl font-bold text-white">InvoiceAI</span>
         </Link>
       </div>
 
       <div className="p-4 space-y-8">
-        <nav className="mt-4 space-y-1">
+        <nav className="space-y-1">
           {sidebarLinks.map((item) => (
             <Link
               key={item.href}
