@@ -1,9 +1,11 @@
 "use client";
 
+import {useUser} from "@clerk/nextjs";
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 interface Invoice {
+  Timestamp: string;
   id: string;
   name: string;
   file_url: string;
@@ -12,21 +14,31 @@ interface Invoice {
 }
 
 export default function InvoiceManagement() {
+
+  const {user, isSignedIn} = useUser();
+  const userId = user?.id;
+
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [invoiceName, setInvoiceName] = useState<string>("");
   const [status, setStatus] = useState<string>("Pending");
 
   useEffect(() => {
-    fetchInvoices();
-  }, []);
+    if (userId) {
+    fetchInvoices(userId);}
+  }, [userId]);
 
-  const fetchInvoices = async () => {
-    const { data, error } = await supabase.from('invoices').select('*');
+  const fetchInvoices = async (userId: string) => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .eq('uid', userId)
+
     if (error) {
       console.error("Error fetching invoices:", error);
     } else {
       console.log("Fetched invoices:", data);
+      console.log(userId)
       setInvoices(data || []);
     }
   };
@@ -54,14 +66,18 @@ export default function InvoiceManagement() {
 
     const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoices/${file.name}`;
 
-    const { data, error } = await supabase.from('invoices').insert([{ name: invoiceName, file_url: fileUrl, status }]);
+    const d = new Date();
+    d.toUTCString();
+
+    const { data, error } = await supabase.from('invoices').insert([{ name: invoiceName, file_url: fileUrl, status, uid: userId, Timestamp: d}]);
     if (error) {
       console.error("Error inserting invoice:", error);
     } else {
       setInvoiceName("");
       setFile(null);
       // Fetch invoices again to update the list
-      fetchInvoices();
+      if (userId){
+      fetchInvoices(userId);}
     }
   };
 
@@ -76,6 +92,11 @@ export default function InvoiceManagement() {
         )
       );
     }
+  };
+
+  const convertToLocalTime = (utcTimestamp: string) => {
+    const date = new Date(utcTimestamp);
+    return date.toLocaleString();
   };
 
   return (
@@ -117,7 +138,7 @@ export default function InvoiceManagement() {
           {invoices.map((invoice) => (
             <tr key={invoice.id} className="border-t border-gray-600 hover:bg-gray-700 transition">
               <td className="border px-4 py-2">{invoice.name}</td>
-              <td className="border px-4 py-2">{new Date(invoice.created_at).toLocaleString()}</td>
+              <td className="border px-4 py-2">{convertToLocalTime(invoice.Timestamp)}</td>
               <td className="border px-4 py-2">
                 <a href={invoice.file_url} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">
                   {invoice.file_url.split('/').pop()}
