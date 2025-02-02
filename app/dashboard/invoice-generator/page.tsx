@@ -6,6 +6,8 @@ import { supabase } from "@/lib/supabaseClient"
 import jsPDF from 'jspdf'
 import 'jspdf-autotable'
 import { UserOptions } from 'jspdf-autotable'
+import { useUser } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 
 // Add this to make TypeScript recognize autoTable
 declare module 'jspdf' {
@@ -26,9 +28,12 @@ interface InvoiceItem {
   description: string
   quantity: number
   price: number
+  isManual?: boolean
 }
 
 export default function InvoiceGenerator() {
+  const { user, isLoaded, isSignedIn } = useUser()
+  const router = useRouter()
   const [items, setItems] = useState<InvoiceItem[]>([
     { productId: "", description: "", quantity: 1, price: 0 }
   ])
@@ -37,24 +42,40 @@ export default function InvoiceGenerator() {
   const [clientEmail, setClientEmail] = useState("")
 
   useEffect(() => {
-    fetchProducts()
-  }, [])
+    if (isLoaded) {
+      if (!isSignedIn) {
+        router.push('/sign-in')
+        return
+      }
+      fetchProducts()
+    }
+  }, [isLoaded, isSignedIn])
 
   const fetchProducts = async () => {
+    if (!user?.id) return
+
     const { data, error } = await supabase
       .from('products')
       .select('*')
-      .gt('stock', 0) // Only fetch products with stock > 0
+      .eq('user_id', user.id)
+      .gt('stock', 0)
     
     if (error) {
       console.error("Error fetching products:", error)
     } else {
+      console.log("Fetched products:", data)
       setProducts(data || [])
     }
   }
 
-  const addItem = () => {
-    setItems([...items, { productId: "", description: "", quantity: 1, price: 0 }])
+  const addItem = (isManual: boolean = false) => {
+    setItems([...items, { 
+      productId: "", 
+      description: "", 
+      quantity: 1, 
+      price: 0,
+      isManual 
+    }])
   }
 
   const removeItem = (index: number) => {
@@ -82,6 +103,15 @@ export default function InvoiceGenerator() {
       newItems[index] = { ...newItems[index], quantity }
       setItems(newItems)
     }
+  }
+
+  const updateManualItem = (index: number, field: keyof InvoiceItem, value: string | number) => {
+    const newItems = [...items]
+    newItems[index] = {
+      ...newItems[index],
+      [field]: value
+    }
+    setItems(newItems)
   }
 
   const calculateTotal = () => {
@@ -135,8 +165,13 @@ export default function InvoiceGenerator() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    if (!user?.id) {
+      alert("Please sign in to create invoices")
+      return
+    }
+
     try {
-      // Begin transaction for stock updates and invoice creation
+      // Create invoice in database with user_id instead of uid
       const { data: invoiceData, error: invoiceError } = await supabase
         .from('invoices')
         .insert([
@@ -145,63 +180,37 @@ export default function InvoiceGenerator() {
             total: calculateTotal(),
             Timestamp: new Date().toISOString(),
             status: 'pending',
-            file_url: 'pending'
+            file_url: 'pending',
+            user_id: user.id,
+            client_email: clientEmail,
+            client_name: clientName
           }
         ])
-        .select()
 
       if (invoiceError) {
-        throw new Error(`Error creating invoice: ${invoiceError.message}`)
+        console.error('Detailed error:', invoiceError)
+        throw invoiceError
       }
 
-      // Update product stock
-      for (const item of items) {
-        // First get current stock
-        const { data: currentProduct, error: fetchError } = await supabase
-          .from('products')
-          .select('stock')
-          .eq('id', item.productId)
-          .single()
-
-        if (fetchError) {
-          throw new Error(`Error fetching product: ${fetchError.message}`)
-        }
-
-        const newStock = currentProduct.stock - item.quantity
-        
-        if (newStock < 0) {
-          throw new Error(`Insufficient stock for product: ${item.description}`)
-        }
-
-        // Update stock
-        const { error: updateError } = await supabase
-          .from('products')
-          .update({ stock: newStock })
-          .eq('id', item.productId)
-
-        if (updateError) {
-          throw new Error(`Error updating stock: ${updateError.message}`)
-        }
-      }
-
-      // Generate and download PDF
-      generatePDF()
-      
-      // Refresh products after stock update
-      await fetchProducts()
-      
       // Reset form
       setItems([{ productId: "", description: "", quantity: 1, price: 0 }])
       setClientName("")
       setClientEmail("")
 
-      // Show success message
-      alert('Invoice generated and stock updated successfully!')
+      alert('Invoice created successfully!')
       
     } catch (error) {
-      console.error('Error:', error)
-      alert(error instanceof Error ? error.message : 'An error occurred')
+      console.error('Error creating invoice:', error)
+      alert('Failed to create invoice. Please check the console for details.')
     }
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="p-6 text-center text-gray-400">
+        Loading...
+      </div>
+    )
   }
 
   return (
@@ -243,14 +252,24 @@ export default function InvoiceGenerator() {
         <div className="bg-gray-800/50 rounded-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg font-medium text-white">Invoice Items</h2>
-            <button
-              type="button"
-              onClick={addItem}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-800"
-            >
-              <IconPlus className="w-4 h-4" />
-              Add Item
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => addItem(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
+              >
+                <IconPlus className="w-4 h-4" />
+                Add Manual Item
+              </button>
+              <button
+                type="button"
+                onClick={() => addItem(false)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+              >
+                <IconPlus className="w-4 h-4" />
+                Add Product
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -268,38 +287,64 @@ export default function InvoiceGenerator() {
                 {items.map((item, index) => (
                   <tr key={index} className="border-b border-gray-700/50">
                     <td className="py-3 px-4">
-                      <select
-                        value={item.productId}
-                        onChange={(e) => updateItem(index, e.target.value)}
-                        className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        required
-                      >
-                        <option value="">Select a product</option>
-                        {products.map((product) => (
-                          <option key={product.id} value={product.id}>
-                            {product.name} (Stock: {product.stock})
-                          </option>
-                        ))}
-                      </select>
+                      {item.isManual ? (
+                        <input
+                          type="text"
+                          value={item.description}
+                          onChange={(e) => updateManualItem(index, 'description', e.target.value)}
+                          placeholder="Item description"
+                          className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
+                          required
+                        />
+                      ) : (
+                        <select
+                          value={item.productId}
+                          onChange={(e) => updateItem(index, e.target.value)}
+                          className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
+                          required
+                        >
+                          <option value="">Select a product</option>
+                          {products.map((product) => (
+                            <option key={product.id} value={product.id}>
+                              {product.name} (Stock: {product.stock})
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <input
                         type="number"
                         value={item.quantity}
-                        onChange={(e) => updateQuantity(index, parseInt(e.target.value))}
-                        className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        onChange={(e) => item.isManual 
+                          ? updateManualItem(index, 'quantity', parseInt(e.target.value))
+                          : updateQuantity(index, parseInt(e.target.value))
+                        }
+                        className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
                         min="1"
-                        max={products.find(p => p.id === item.productId)?.stock || 1}
+                        max={item.isManual ? undefined : products.find(p => p.id === item.productId)?.stock || 1}
                         required
                       />
                     </td>
                     <td className="py-3 px-4">
-                      <input
-                        type="text"
-                        value={`$${item.price.toFixed(2)}`}
-                        className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
-                        disabled
-                      />
+                      {item.isManual ? (
+                        <input
+                          type="number"
+                          value={item.price}
+                          onChange={(e) => updateManualItem(index, 'price', parseFloat(e.target.value))}
+                          className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
+                          min="0"
+                          step="0.01"
+                          required
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={`$${item.price.toFixed(2)}`}
+                          className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
+                          disabled
+                        />
+                      )}
                     </td>
                     <td className="py-3 px-4">
                       <input

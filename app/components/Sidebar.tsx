@@ -53,7 +53,7 @@ export default function Sidebar() {
           <div className="h-8 w-8 rounded bg-indigo-600 flex items-center justify-center">
             <span className="text-lg font-bold text-white">I</span>
           </div>
-          <span className="text-xl font-bold text-white">InvoiceAI</span>
+          <span className="text-xl font-bold text-white">Ledgerly</span>
         </Link>
       </div>
 

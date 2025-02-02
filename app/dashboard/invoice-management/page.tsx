@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabaseClient"
-import { IconDownload, IconTrash } from "@tabler/icons-react"
+import { IconDownload, IconTrash, IconUpload } from "@tabler/icons-react"
+import { useUser } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 
 interface Invoice {
   id: string
@@ -10,41 +12,72 @@ interface Invoice {
   total: number
   Timestamp: string
   status: string
+  file_url: string
 }
 
 export default function InvoiceManagement() {
+  const { user, isLoaded, isSignedIn } = useUser()
+  const router = useRouter()
   const [invoices, setInvoices] = useState<Invoice[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [uploadName, setUploadName] = useState("")
 
   useEffect(() => {
-    fetchInvoices()
-  }, [])
+    // Check if user auth is loaded and user is signed in
+    if (isLoaded) {
+      if (!isSignedIn) {
+        router.push('/sign-in') // Redirect to sign in if not authenticated
+        return
+      }
+      fetchInvoices() // Fetch invoices only if user is authenticated
+    }
+  }, [isLoaded, isSignedIn, user?.id])
 
   const fetchInvoices = async () => {
+    if (!user?.id) return // Don't fetch if no user ID
+
     try {
       setLoading(true)
       setError(null)
 
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, name, total, Timestamp, status')
+        .select(`
+          id,
+          name,
+          total,
+          Timestamp,
+          status,
+          file_url
+        `)
+        .eq('user_id', user.id)
         .order('Timestamp', { ascending: false })
 
       if (error) {
-        console.error('Supabase error details:', error)
-        throw error
+        console.error('Supabase error:', error.message)
+        throw new Error(error.message)
       }
 
-      console.log('Fetched data:', data)
+      console.log('Fetched invoices:', data)
       setInvoices(data || [])
+      
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      console.error('Error fetching invoices:', errorMessage)
-      setError(errorMessage)
+      console.error('Full error:', error)
+      setError(error instanceof Error ? error.message : 'Failed to fetch invoices')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show loading state while checking auth
+  if (!isLoaded) {
+    return (
+      <div className="p-6 text-center text-gray-400">
+        Loading...
+      </div>
+    )
   }
 
   const formatDate = (dateString: string) => {
@@ -90,11 +123,105 @@ export default function InvoiceManagement() {
     }
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0])
+    }
+  }
+
+  const handleUpload = async () => {
+    if (!file || !uploadName) {
+      alert("Please provide a name and select a file.")
+      return
+    }
+
+    try {
+      // Upload file to storage
+      const { data: storageData, error: storageError } = await supabase.storage
+        .from('invoices')
+        .upload(`${user?.id}/${file.name}`, file)
+
+      if (storageError) throw storageError
+
+      // Get public URL
+      const fileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/invoices/${user?.id}/${file.name}`
+
+      // Insert invoice record
+      const { error: dbError } = await supabase
+        .from('invoices')
+        .insert([{
+          name: uploadName,
+          file_url: fileUrl,
+          status: 'pending',
+          user_id: user?.id,
+          Timestamp: new Date().toISOString(),
+          total: 0
+        }])
+
+      if (dbError) throw dbError
+
+      // Reset form and refresh list
+      setFile(null)
+      setUploadName("")
+      fetchInvoices()
+      
+    } catch (error) {
+      console.error('Upload error:', error)
+      alert('Failed to upload invoice')
+    }
+  }
+
+  const handleDownload = async (fileUrl: string, fileName: string) => {
+    try {
+      const response = await fetch(fileUrl)
+      if (!response.ok) throw new Error('Download failed')
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = fileName // Use the original file name
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Download error:', error)
+      alert('Failed to download file')
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-white">Invoice Management</h1>
         <p className="text-gray-400">View and manage all invoices</p>
+      </div>
+
+      {/* Upload Section */}
+      <div className="bg-gray-800/50 rounded-lg p-6 space-y-4">
+        <input
+          type="text"
+          placeholder="Invoice Name"
+          value={uploadName}
+          onChange={(e) => setUploadName(e.target.value)}
+          className="w-full p-2 bg-gray-700 rounded-md border border-gray-600 text-white"
+        />
+        <div className="flex gap-4">
+          <input
+            type="file"
+            onChange={handleFileChange}
+            className="flex-1 p-2 bg-gray-700 rounded-md border border-gray-600 text-white"
+            accept=".pdf,.doc,.docx"
+          />
+          <button
+            onClick={handleUpload}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center gap-2"
+          >
+            <IconUpload className="w-5 h-5" />
+            Upload
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -162,6 +289,10 @@ export default function InvoiceManagement() {
                           <IconTrash className="w-5 h-5" />
                         </button>
                         <button
+                          onClick={() => handleDownload(
+                            invoice.file_url,
+                            invoice.name + '_' + invoice.id.slice(0, 6) + '.pdf'
+                          )}
                           className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-full transition-colors"
                           title="Download Invoice"
                         >
