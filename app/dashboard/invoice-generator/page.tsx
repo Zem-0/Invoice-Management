@@ -8,6 +8,7 @@ import 'jspdf-autotable'
 import { UserOptions } from 'jspdf-autotable'
 import { useUser } from "@clerk/nextjs"
 import { useRouter } from "next/navigation"
+import { createClient } from '@supabase/supabase-js'
 
 // Add this to make TypeScript recognize autoTable
 declare module 'jspdf' {
@@ -31,6 +32,16 @@ interface InvoiceItem {
   price: number
   isManual?: boolean
 }
+
+interface InvoiceData {
+  id: number;
+  file_url: string;
+}
+
+const supabaseClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export default function InvoiceGenerator() {
   const { user, isLoaded, isSignedIn } = useUser()
@@ -152,8 +163,11 @@ export default function InvoiceGenerator() {
             client_name: clientName
           }
         ])
+        .select() as { data: InvoiceData[] | null; error: any }
 
       if (invoiceError) throw invoiceError
+
+      if (!invoiceData || !invoiceData[0]) throw new Error('Failed to create invoice')
 
       // Generate PDF using jsPDF
       const doc = new jsPDF()
@@ -195,8 +209,32 @@ export default function InvoiceGenerator() {
       const finalY = (doc as any).lastAutoTable.finalY || 80
       doc.text(`Total: $${calculateTotal().toFixed(2)}`, 14, finalY + 20)
       
-      // Save PDF
-      doc.save(`invoice-${Date.now()}.pdf`)
+      // Save locally and trigger download
+      doc.save(`invoice_${Date.now()}.pdf`)
+      
+      // Upload to Supabase
+      const pdfDoc = doc.output('blob')
+      const fileName = `invoice_${Date.now()}.pdf`
+      const { data, error: uploadError } = await supabase.storage
+        .from('invoices')
+        .upload(fileName, pdfDoc, {
+          contentType: 'application/pdf'
+        })
+      
+      if (uploadError) throw uploadError
+
+      // Get public URL
+      const { data: { publicUrl } } = supabaseClient.storage
+        .from('invoices')
+        .getPublicUrl(fileName)
+
+      // Save to invoices table
+      const { error: dbError } = await supabase
+        .from('invoices')
+        .update({ file_url: publicUrl })
+        .eq('id', invoiceData[0].id)
+
+      if (dbError) throw dbError
 
       // Reset form
       setItems([{ productId: "", description: "", quantity: 1, price: 0 }])
