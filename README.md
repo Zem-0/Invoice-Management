@@ -119,10 +119,8 @@ This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md
 
 ## 📧 Contact
 
-Your Name - [@yourtwitter](https://twitter.com/yourtwitter)
 
-Project Link: [https://github.com/yourusername/invoiceai](https://github.com/yourusername/invoiceai)
+Project Link: [https://github.com/Zem-0/Invoice-Management](https://github.com/Zem-0/Invoice-Management)
 
 ---
 
-Made with ❤️ by [Your Name]
