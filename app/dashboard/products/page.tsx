@@ -34,6 +34,7 @@ export default function ProductManagement() {
     uuid: "",
     user_id: ""
   });
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   useEffect(() => {
     if (isLoaded) {
@@ -60,34 +61,59 @@ export default function ProductManagement() {
     }
   };
 
+  const handleEditClick = (product: Product) => {
+    setEditingProduct(product);
+    setNewProduct({
+      name: product.name,
+      price: product.price,
+      stock: product.stock,
+      uuid: product.uuid,
+      user_id: product.user_id
+    });
+  };
+
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!user?.id) {
-      alert("Please sign in to add products");
+      alert("Please sign in to manage products");
       return;
     }
 
     try {
-      const { error } = await supabase
-        .from('products')
-        .insert([
-          {
+      if (editingProduct) {
+        const { error } = await supabase
+          .from('products')
+          .update({
             name: newProduct.name,
             price: newProduct.price,
-            stock: newProduct.stock,
-            user_id: user.id
-          }
-        ])
+            stock: newProduct.stock
+          })
+          .eq('uuid', editingProduct.uuid);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('products')
+          .insert([
+            {
+              name: newProduct.name,
+              price: newProduct.price,
+              stock: newProduct.stock,
+              user_id: user.id
+            }
+          ]);
+
+        if (error) throw error;
+      }
 
       setNewProduct({ name: "", price: 0, stock: 0, uuid: "", user_id: "" });
+      setEditingProduct(null);
       fetchProducts();
       
     } catch (error) {
-      console.error('Error adding product:', error);
-      alert('Failed to add product');
+      console.error('Error managing product:', error);
+      alert('Failed to manage product');
     }
   };
 
@@ -127,6 +153,23 @@ export default function ProductManagement() {
           animate={{ opacity: 1, y: 0 }}
         >
           <form onSubmit={handleAddProduct} className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-white">
+                {editingProduct ? 'Edit Product' : 'Add New Product'}
+              </h2>
+              {editingProduct && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingProduct(null);
+                    setNewProduct({ name: "", price: 0, stock: 0, uuid: "", user_id: "" });
+                  }}
+                  className="text-sm text-zinc-400 hover:text-white transition-colors"
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="flex items-center text-sm font-medium text-zinc-400 mb-2">
@@ -175,7 +218,7 @@ export default function ProductManagement() {
               className="w-full px-8 py-3 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-600 text-white rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/50"
             >
               <IconPlus className="w-4 h-4" />
-              Add Product
+              {editingProduct ? 'Update Product' : 'Add Product'}
             </motion.button>
           </form>
         </motion.div>
@@ -210,6 +253,7 @@ export default function ProductManagement() {
                         <motion.button
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
+                          onClick={() => handleEditClick(product)}
                           className="p-2 text-zinc-400 hover:text-white transition-colors"
                         >
                           <IconEdit className="w-5 h-5" />
