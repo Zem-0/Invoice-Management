@@ -383,7 +383,7 @@ export default function InvoiceGenerator() {
                         }}
                         className="w-full rounded-md bg-gray-700 border-gray-600 text-white px-3 py-1.5"
                         min="1"
-                        max={item.isManual ? undefined : products.find(p => p.id === item.productId)?.stock || 1}
+                        max={item.isManual ? undefined : products.find(p => p.uuid === item.productId)?.stock || 1}
                         required
                       />
                     </td>

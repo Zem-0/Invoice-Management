@@ -11,7 +11,7 @@ interface Invoice {
   name: string
   total: number
   Timestamp: string
-  status: string
+  status: 'pending' | 'done' | 'cancelled'
   file_url: string
 }
 
@@ -107,21 +107,31 @@ export default function InvoiceManagement() {
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     try {
-      const newStatus = currentStatus === 'pending' ? 'done' : 'pending'
+      let newStatus: 'pending' | 'done' | 'cancelled';
+      
+      // Cycle through statuses
+      switch (currentStatus) {
+        case 'pending':
+          newStatus = 'done';
+          break;
+        case 'done':
+          newStatus = 'cancelled';
+          break;
+        default:
+          newStatus = 'pending';
+      }
       
       const { error } = await supabase
         .from('invoices')
         .update({ status: newStatus })
-        .eq('id', id)
+        .eq('id', id);
 
-      if (error) throw error
-
-      // Refresh the invoices list
-      fetchInvoices()
+      if (error) throw error;
+      fetchInvoices();
     } catch (error) {
-      console.error('Error updating status:', error)
+      console.error('Error updating status:', error);
     }
-  }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -273,10 +283,12 @@ export default function InvoiceManagement() {
                         className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${
                           invoice.status === 'done' 
                             ? 'bg-green-500/10 text-green-400 hover:bg-green-500/20'
+                            : invoice.status === 'cancelled'
+                            ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20'
                             : 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500/20'
                         }`}
                       >
-                        {invoice.status ? invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1) : 'Pending'}
+                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                       </button>
                     </td>
                     <td className="py-3 px-4">
