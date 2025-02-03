@@ -75,8 +75,8 @@ export default function Header() {
             
             <nav className="hidden md:flex items-center space-x-2">
               {[
-                ["Features", "#features"],
-                ["Testimonials", "#testimonials"],
+                ["Features", "#features"]
+               
               ].map(([label, href]) => (
                 <Link
                   key={label}
